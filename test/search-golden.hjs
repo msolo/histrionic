@@ -1,0 +1,6 @@
+1	ok	echo hist command 2
+2	ok	echo hist command 3
+3	ok	echo hist command 4
+4	ok	echo hist command 1
+5	ok	echo session command 1
+6	err:1	echo session command 2

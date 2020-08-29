@@ -1,0 +1,4 @@
+github.com/msolo/go-bis v0.0.0-20200829052912-c038d18b2092 h1:+akygMnxlee2CCLt5Ijf44EVx/BiE95+aeUY66bfJyk=
+github.com/msolo/go-bis v0.0.0-20200829052912-c038d18b2092/go.mod h1:TWev+HWwtwNldMwNlAJdrXFVbRtekPohQNHo3aJ4jJ0=
+github.com/msolo/go-bis/flock v0.0.0-20200829052912-c038d18b2092 h1:Da/UkG9vRt5zdoDptaKo0pftfL1zjf+vK+PyPE+gtNA=
+github.com/msolo/go-bis/flock v0.0.0-20200829052912-c038d18b2092/go.mod h1:T8Vobs9qY/oFDXO4436JEN1MT5XJ5DNM/yCbtn6pO1c=
