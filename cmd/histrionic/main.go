@@ -231,7 +231,7 @@ func pruneRecords(rs []*histRecord) []*histRecord {
 
 // Reverse records in place.
 func reverse(rs []*histRecord) {
-	for i := 0; i < len(rs); i++ {
+	for i := 0; i < len(rs)/2; i++ {
 		rs[i], rs[len(rs)-i-1] = rs[len(rs)-i-1], rs[i]
 	}
 }
@@ -358,11 +358,63 @@ func newAtomicFileWriter(fname string, perm os.FileMode) (io.WriteCloser, error)
 	return ioutil2.NewAtomicFileWriter(fname, perm)
 }
 
+func cmdDump(args []string) {
+	flags := flag.NewFlagSet("dump", flag.ExitOnError)
+
+	print0 := flags.Bool("print0", false, "Print commands null delimited.")
+	hostname := flags.String("x-hostname", "", "Restrict output to commands that occurred on hostname.")
+	coalesce := flags.Bool("coalesce", false, "Coalesce duplicates and failing commands.")
+	prune := flags.Bool("prune", false, "Prune low-values commands from the history.")
+	noLineNumber := flags.Bool("n", false, "Do not print line numbers.")
+	historyFmt := flags.Bool("history-fmt", false, "Write output in a history-compatible format.")
+	outFile := flags.String("o", "/dev/stdout", "Output file.")
+
+	flags.Parse(args)
+
+	rs := make([]*histRecord, 0, 1024)
+	for _, fname := range flags.Args() {
+		trs, err := readRecords(fname)
+		if err != nil {
+			log.Fatal(err)
+		}
+		rs = append(rs, trs...)
+	}
+
+	if *coalesce {
+		rs = coalesceRecords(rs)
+	}
+	if *prune {
+		rs = pruneRecords(rs)
+	}
+
+	if *hostname != "" {
+		filtered := make([]*histRecord, 0, len(rs))
+		for _, r := range rs {
+			if r.Hostname == "" || r.Hostname == *hostname {
+				filtered = append(filtered, r)
+			}
+		}
+		rs = filtered
+	}
+
+	wr, err := newAtomicFileWriter(*outFile, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer wr.Close()
+
+	if *historyFmt {
+		writeHistory(wr, rs)
+		return
+	}
+	writeLines(wr, rs, !*noLineNumber, *print0)
+}
+
 func cmdImport(args []string) {
 	flags := flag.NewFlagSet("import", flag.ExitOnError)
 
 	bashHistFile := flags.String("bash-histfile", "", "Native history file.")
-	outFile := flags.String("o", "", "Output file.")
+	outFile := flags.String("o", "/dev/stdout", "Output file.")
 	hostname := flags.String("hostname", os.Getenv("HOSTNAME"), "Associate all entries with a particular hostname.")
 
 	flags.Parse(args)
@@ -418,61 +470,9 @@ func cmdImport(args []string) {
 	}
 }
 
-func cmdDump(args []string) {
-	flags := flag.NewFlagSet("dump", flag.ExitOnError)
-
-	print0 := flags.Bool("print0", false, "Print commands null delimited.")
-	hostname := flags.String("x-hostname", "", "Restrict output to commands that occurred on hostname.")
-	coalesce := flags.Bool("coalesce", false, "Coalesce duplicates and failing commands.")
-	prune := flags.Bool("prune", false, "Prune low-values commands from the history.")
-	noLineNumber := flags.Bool("n", false, "Do not print line numbers.")
-	historyFmt := flags.Bool("history-fmt", false, "Write output in a history-compatible format.")
-	outFile := flags.String("o", "", "Output file.")
-
-	flags.Parse(args)
-
-	rs := make([]*histRecord, 0, 1024)
-	for _, fname := range flags.Args() {
-		trs, err := readRecords(fname)
-		if err != nil {
-			log.Fatal(err)
-		}
-		rs = append(rs, trs...)
-	}
-
-	if *coalesce {
-		rs = coalesceRecords(rs)
-	}
-	if *prune {
-		rs = pruneRecords(rs)
-	}
-
-	if *hostname != "" {
-		filtered := make([]*histRecord, 0, len(rs))
-		for _, r := range rs {
-			if r.Hostname == "" || r.Hostname == *hostname {
-				filtered = append(filtered, r)
-			}
-		}
-		rs = filtered
-	}
-
-	wr, err := newAtomicFileWriter(*outFile, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer wr.Close()
-
-	if *historyFmt {
-		writeHistory(wr, rs)
-		return
-	}
-	writeLines(wr, rs, !*noLineNumber, *print0)
-}
-
 func cmdMerge(args []string) {
 	flags := flag.NewFlagSet("merge", flag.ExitOnError)
-	outFile := flags.String("o", "", "Output file.")
+	outFile := flags.String("o", "/dev/stdout", "Output file.")
 
 	err := flags.Parse(args)
 	if err != nil {
