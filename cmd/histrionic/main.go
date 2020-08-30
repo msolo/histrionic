@@ -169,7 +169,15 @@ var excludeCommands = []string{
 }
 
 func hasCmdPrefix(cmd, prefix string) bool {
-	return strings.HasPrefix(cmd, prefix) && len(prefix) < len(cmd) && cmd[len(prefix)] == ' '
+	if strings.HasPrefix(cmd, prefix) {
+		if len(cmd) == len(prefix) {
+			return true
+		}
+		if len(prefix) < len(cmd) && cmd[len(prefix)] == ' ' {
+			return true
+		}
+	}
+	return false
 }
 
 func matchesLimit(cmd string) (pattern string) {
