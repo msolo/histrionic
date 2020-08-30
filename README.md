@@ -7,7 +7,14 @@ Histrionic is a small tool that stores extra metadata about shell history and ma
 Shell commands are stored immediately, rather than on shell exit. This allows completing across all active shell sessions. When searching, common commands are pruned and coalesced so the results are more relevant. Errors are also presented so you can filter out commands based on exit status.
 
 # Getting Started
+
+You should backup your existing shell history just in case and examine the shell integration a bit beforehand.
+
+  NOTE: When the shell exits, command history is pruned, culled and the bash history file is overwritten with a new version managed by `histrionic`. This is not critical, but it can be useful to keep the in-bashp prefix completion mechanism lean and relevant.
+
 ```
+go get github.com/msolo/histrionic/cmd/histrionic
+source $(go env GOPATH)/src/github.com/msolo/histrionic/histrionic.bash
 ```
 
 # Demo
