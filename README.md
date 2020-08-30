@@ -10,7 +10,7 @@ Shell commands are stored immediately, rather than on shell exit. This allows co
 
 You should backup your existing shell history just in case and examine the shell integration a bit beforehand.
 
-  NOTE: When the shell exits, command history is pruned, culled and the bash history file is overwritten with a new version managed by `histrionic`. This is not critical, but it can be useful to keep the in-bashp prefix completion mechanism lean and relevant.
+> NOTE: When the shell exits, command history is pruned, culled and the bash history file is overwritten with a new version managed by `histrionic`. This is not critical, but it can be useful to keep the in-bash prefix completion mechanism lean and relevant.
 
 ```
 go get github.com/msolo/histrionic/cmd/histrionic
