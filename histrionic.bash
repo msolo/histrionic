@@ -1,5 +1,8 @@
+which fzf > /dev/null || echo "histrionic: no fzf binary found in $PATH" >&2 && return 1
+which histrionic > /dev/null || echo "histrionic: no histrionic binary found in $PATH" >&2 && return 1
+
 if [[ "$__histrionic_session" != "" ]]; then
-    echo "Already inited - skipping" >&2
+    echo "histrionic: already inited - skipping" >&2
     return 1
 fi
 
