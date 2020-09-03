@@ -1,9 +1,16 @@
-which fzf > /dev/null || echo "histrionic: no fzf binary found in $PATH" >&2 && return 1
-which histrionic > /dev/null || echo "histrionic: no histrionic binary found in $PATH" >&2 && return 1
+if ! which fzf > /dev/null; then
+  echo "histrionic: no fzf binary found in $PATH" >&2
+  return 1
+fi
+
+if ! which histrionic > /dev/null; then
+  echo "histrionic: no histrionic binary found in $PATH" >&2
+  return 1
+fi
 
 if [[ "$__histrionic_session" != "" ]]; then
-    echo "histrionic: already inited - skipping" >&2
-    return 1
+  echo "histrionic: already inited - skipping" >&2
+  return 1
 fi
 
 __histrionic_archive_dir="$HOME/.bash-archives"
