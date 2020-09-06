@@ -272,7 +272,15 @@ type cmdFunc func(args []string)
 
 var cmdMap map[string]cmdFunc
 
-var doc = `History recorder.`
+var doc = `Shell command history recorder.
+
+  histrionic append
+  histrionic dump
+  histrionic import
+  histrionic merge
+
+Each mode accepts -h for additional command help.
+`
 
 func init() {
 	cmdMap = map[string]cmdFunc{
@@ -284,7 +292,6 @@ func init() {
 	log.SetFlags(0)
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, doc)
 		flag.PrintDefaults()
 	}
