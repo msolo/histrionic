@@ -58,9 +58,12 @@ function __histrionic_search_local {
   __histrionic_search $__histrionic_archive_file $__histrionic_session_file
 }
 
-function __histrionic_search_any {
-  # FIXME(msolo) Filter out by hostname?
+function __histrionic_search_host {
   __histrionic_search $__histrionic_archive_file $__histrionic_archive_dir/$HOSTNAME@*.hjs
+}
+
+function __histrionic_search_all {
+  __histrionic_search $__histrionic_archive_dir/*.hjs
 }
 
 
@@ -74,4 +77,4 @@ PROMPT_COMMAND="__histrionic_prompt;$PROMPT_COMMAND"
 trap '__histrionic_exit || sleep 60' EXIT
 
 bind -m emacs-standard -x '"\C-r": __histrionic_search_local'
-bind -m emacs-standard -x '"\M-r": __histrionic_search_any'
+bind -m emacs-standard -x '"\M-r": __histrionic_search_host'
