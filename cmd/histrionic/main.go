@@ -373,6 +373,23 @@ func newAtomicFileWriter(fname string, perm os.FileMode) (io.WriteCloser, error)
 	return ioutil2.NewAtomicFileWriter(fname, perm)
 }
 
+func atomicFileCopy(dst, src string) error {
+	fsrc, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer fsrc.Close()
+
+	fdst, err := newAtomicFileWriter(dst, 0666)
+	if err != nil {
+		return err
+	}
+	defer fdst.Close()
+
+	_, err = io.Copy(fdst, fsrc)
+	return err
+}
+
 func cmdDump(args []string) {
 	flags := flag.NewFlagSet("dump", flag.ExitOnError)
 
@@ -494,10 +511,16 @@ func cmdMerge(args []string) {
 		log.Fatal("flag error:", err)
 	}
 
+	// Let's make a backup. Sometimes things get odd on shell closing.
+	if err := atomicFileCopy(*outFile+".bak", *outFile); err != nil {
+		log.Fatal(err)
+	}
+
 	if err := merge(*outFile, flags.Args()); err != nil {
 		log.Fatal(err)
 	}
 }
+
 func merge(outFile string, inputFiles []string) (err error) {
 	flock, err := flock.Open(outFile)
 	if err != nil {

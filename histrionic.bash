@@ -22,6 +22,7 @@ __histrionic_archive_file="$__histrionic_archive_dir/$HOSTNAME.hjs"
 function __histrionic_init {
   mkdir -p -m 755 "$HOME/.bash-archive"
   if [ ! -e $__histrionic_archive_file ]; then
+    echo "histrionic: importing existing bash history" >&2
   	histrionic import -bash-histfile $HISTFILE -hostname $HOSTNAME -o $__histrionic_archive_file || return $?
   fi
 }
