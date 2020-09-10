@@ -1,8 +1,3 @@
-if ! which fzf > /dev/null; then
-  echo "histrionic: no fzf binary found in $PATH" >&2
-  return 1
-fi
-
 if ! which histrionic > /dev/null; then
   echo "histrionic: no histrionic binary found in $PATH" >&2
   return 1
@@ -20,22 +15,22 @@ __histrionic_archive_file="$__histrionic_archive_dir/$HOSTNAME.hjs"
 
 # If there is no archive, try to create one from existing bash history.
 function __histrionic_init {
-  mkdir -p -m 755 "$HOME/.bash-archive"
+  mkdir -p -m 755 "$__histrionic_archive_dir"
   if [ ! -e $__histrionic_archive_file ]; then
     echo "histrionic: importing existing bash history" >&2
-  	histrionic import -bash-histfile $HISTFILE -hostname $HOSTNAME -o $__histrionic_archive_file || return $?
+    histrionic import -bash-histfile "$HISTFILE" -hostname $HOSTNAME -o "$__histrionic_archive_file" || return $?
   fi
 }
 
 function __histrionic_prompt {
 	local rc=$?
-	builtin fc -nl -1 | histrionic append -exit-code $rc -session $__histrionic_session -hostname $HOSTNAME -o $__histrionic_session_file
+	builtin fc -nl -1 | histrionic append -exit-code $rc -session $__histrionic_session -hostname $HOSTNAME -o "$__histrionic_session_file"
 }
 
 function __histrionic_exit {
-	  histrionic merge -o $__histrionic_archive_file $__histrionic_archive_file $__histrionic_session_file || return $?
-    rm $__histrionic_session_file
-	histrionic dump -history-fmt -o $HISTFILE -coalesce -prune $__histrionic_archive_file || return $?
+  histrionic merge -o "$__histrionic_archive_file" "$__histrionic_archive_file" "$__histrionic_session_file" || return $?
+  rm "$__histrionic_session_file"
+	histrionic dump -history-fmt -o "$HISTFILE" -coalesce -prune "$__histrionic_archive_file" || return $?
   return $?
 }
 
@@ -55,18 +50,16 @@ function __histrionic_search {
 }
 
 function __histrionic_search_local {
-  echo __histrionic_search $__histrionic_archive_file $__histrionic_session_file
-  __histrionic_search $__histrionic_archive_file $__histrionic_session_file
+  __histrionic_search "$__histrionic_archive_file" "$__histrionic_session_file"
 }
 
 function __histrionic_search_host {
-  __histrionic_search $__histrionic_archive_file $__histrionic_archive_dir/$HOSTNAME@*.hjs
+  __histrionic_search "$__histrionic_archive_file" "$__histrionic_archive_dir/$HOSTNAME@"*.hjs
 }
 
 function __histrionic_search_all {
-  __histrionic_search $__histrionic_archive_dir/*.hjs
+  __histrionic_search "$__histrionic_archive_dir/"*.hjs
 }
-
 
 __histrionic_init
 
@@ -77,5 +70,10 @@ PROMPT_COMMAND="__histrionic_prompt;$PROMPT_COMMAND"
 # TODO(msolo) Play nice and make this preserve existing EXIT traps.
 trap '__histrionic_exit || sleep 60' EXIT
 
-bind -m emacs-standard -x '"\C-r": __histrionic_search_local'
-bind -m emacs-standard -x '"\M-r": __histrionic_search_host'
+if ! which fzf > /dev/null; then
+  echo "histrionic: no fzf binary found in \$PATH" >&2
+  return 1
+else
+  bind -m emacs-standard -x '"\C-r": __histrionic_search_local'
+  bind -m emacs-standard -x '"\M-r": __histrionic_search_host'
+fi
