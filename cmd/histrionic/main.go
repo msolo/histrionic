@@ -32,7 +32,7 @@ history -a <file> appends all items since the last time history -a was called. t
 if the last command is a duplicate, nothing is appended so you can't tell an empty command from successful re-run.
 */
 
-// TODO(msolo) Add mode to merge/purge
+// TODO(msolo) Add mode to purge.
 // TOOD(msolo) Figure out how to display session info - maybe record in separate file and then merge on shell exit?
 
 type histRecord struct {
@@ -511,6 +511,20 @@ func cmdMerge(args []string) {
 		log.Fatal("flag error:", err)
 	}
 
+	// Merges from different processes should be serialized.
+	flock, err := flock.Open(*outFile + ".lock")
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := flock.Lock(); err != nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		if err := flock.Unlock(); err != nil {
+			log.Println(err)
+		}
+	}()
+
 	// Let's make a backup. Sometimes things get odd on shell closing.
 	if err := atomicFileCopy(*outFile+".bak", *outFile); err != nil {
 		log.Fatal(err)
@@ -522,19 +536,6 @@ func cmdMerge(args []string) {
 }
 
 func merge(outFile string, inputFiles []string) (err error) {
-	flock, err := flock.Open(outFile)
-	if err != nil {
-		return err
-	}
-	if err := flock.Lock(); err != nil {
-		return err
-	}
-	defer func() {
-		if err := flock.Unlock(); err != nil {
-			log.Println(err)
-		}
-	}()
-
 	wr, err := newAtomicFileWriter(outFile, 0644)
 	if err != nil {
 		return err
@@ -546,9 +547,11 @@ func merge(outFile string, inputFiles []string) (err error) {
 	}()
 	recWr := newRecordWriter(wr)
 
+	recCount := make(map[string]int)
 	rs := make([]*histRecord, 0, 1024)
 	for _, fname := range inputFiles {
 		trs, err := readRecords(fname)
+		recCount[fname] = len(trs)
 		if err != nil {
 			return err
 		}
@@ -556,6 +559,13 @@ func merge(outFile string, inputFiles []string) (err error) {
 	}
 
 	sortByTime(rs)
+
+	// Do a sanity check here. Fatal should make sure we don't complete the atomic file write.
+	for fname, count := range recCount {
+		if len(rs) <= count {
+			log.Fatalf("merge error: merge smaller than input file %s", fname)
+		}
+	}
 
 	for _, r := range rs {
 		if err := recWr.WriteRecord(r); err != nil {
