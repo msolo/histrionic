@@ -363,7 +363,9 @@ func cmdAppend(args []string) {
 		_ = f.Close()
 	}()
 	recWr := newRecordWriter(f)
-	recWr.WriteRecord(&r)
+	if err := recWr.WriteRecord(&r); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func newAtomicFileWriter(fname string, perm os.FileMode) (io.WriteCloser, error) {
