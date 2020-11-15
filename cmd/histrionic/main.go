@@ -200,9 +200,17 @@ func matchesExclude(cmd string) bool {
 
 type byTime []*histRecord
 
-func (a byTime) Len() int           { return len(a) }
-func (a byTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a byTime) Less(i, j int) bool { return a[i].Timestamp.Before(a[j].Timestamp) }
+func (a byTime) Len() int      { return len(a) }
+func (a byTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byTime) Less(i, j int) bool {
+	if a[i].Timestamp == a[j].Timestamp {
+		if a[i].Hostname == a[j].Hostname {
+			return a[i].Cmd < a[j].Cmd
+		}
+		return a[i].Hostname < a[j].Hostname
+	}
+	return a[i].Timestamp.Before(a[j].Timestamp)
+}
 
 // Sort ascending by time.
 func sortByTime(rs []*histRecord) {
@@ -571,7 +579,8 @@ func merge(outFile string, inputFiles []string) (err error) {
 
 	for _, r := range rs {
 		if err := recWr.WriteRecord(r); err != nil {
-			return err
+			// Fatal should make sure we don't complete the atomic file write.
+			log.Fatalf("merge error: WriteRecord failed %v", err)
 		}
 	}
 	return nil
