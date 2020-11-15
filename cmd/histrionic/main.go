@@ -541,6 +541,10 @@ func cmdMerge(args []string) {
 	}
 
 	if err := merge(*outFile, flags.Args()); err != nil {
+		// If there is an error, restore the backup file.
+		if restoreErr := atomicFileCopy(*outFile, *outFile+".bak"); restoreErr != nil {
+			log.Printf("unable to restore from backup: %v", restoreErr)
+		}
 		log.Fatal(err)
 	}
 }
@@ -552,7 +556,9 @@ func merge(outFile string, inputFiles []string) (err error) {
 	}
 	defer func() {
 		if closeErr := wr.Close(); closeErr != nil {
-			err = closeErr
+			if err != nil {
+				err = closeErr
+			}
 		}
 	}()
 	recWr := newRecordWriter(wr)
@@ -570,17 +576,16 @@ func merge(outFile string, inputFiles []string) (err error) {
 
 	sortByTime(rs)
 
-	// Do a sanity check here. Fatal should make sure we don't complete the atomic file write.
+	// Do a sanity check here.
 	for fname, count := range recCount {
 		if len(rs) <= count {
-			log.Fatalf("merge error: merge smaller than input file %s", fname)
+			return fmt.Errorf("merge error: merge smaller than input file %s", fname)
 		}
 	}
 
 	for _, r := range rs {
 		if err := recWr.WriteRecord(r); err != nil {
-			// Fatal should make sure we don't complete the atomic file write.
-			log.Fatalf("merge error: WriteRecord failed %v", err)
+			return fmt.Errorf("merge error: WriteRecord failed %v", err)
 		}
 	}
 	return nil
