@@ -27,11 +27,44 @@ function __histrionic_prompt {
 	builtin fc -nl -1 | histrionic append -exit-code $rc -session $__histrionic_session -hostname $HOSTNAME -o "$__histrionic_session_file"
 }
 
+# Ghost sessions are files that are not associated with a running pid.
+# Assume if the pid exists, it is bash; it's close enough for government work.
+function __histrionic_ghost_session_files {
+  ghost_files=""
+  for x in $(ls -1 $__histrionic_archive_dir/$HOSTNAME@*.hjs); do
+    if [[ "$x" =~ -([0-9]{1,6}).hjs ]]; then
+      pid=${BASH_REMATCH[1]}
+      if ! kill -0 $pid 2> /dev/null; then
+        ghost_files="$ghost_files $x"
+      fi
+    fi
+  done
+  echo "$ghost_files"
+}
+
 function __histrionic_exit {
-  histrionic merge -o "$__histrionic_archive_file" "$__histrionic_archive_file" "$__histrionic_session_file" || return $?
-  rm "$__histrionic_session_file"
-	histrionic dump -history-fmt -o "$HISTFILE" -coalesce -prune "$__histrionic_archive_file" || return $?
-  return $?
+  if ! -f "$__histrionic_session_file"; then
+    return 0
+  fi
+  old_entries=$(awk 'END{print NR}' < $__histrionic_archive_file)
+  ghost_files="$(__histrionic_ghost_session_files)"
+  if [[ "$ghost_files" != "" ]]; then
+    echo "Merging and pruning ghost files: $ghost_files" >&2
+  fi
+  histrionic merge -o "$__histrionic_archive_file" "$__histrionic_archive_file" "$__histrionic_session_file" $ghost_files || return $?
+  rm "$__histrionic_session_file" $ghost_files
+  histrionic dump -history-fmt -o "$HISTFILE" -coalesce -prune "$__histrionic_archive_file" || return $?
+
+  entries=$(awk 'END{print NR}' < $__histrionic_archive_file)
+  if (( $entries < 100 )); then
+    echo "WARNING: short $__histrionic_archive_file, $entries entries" >&2
+    return 1
+  fi
+  if (( $entries < $old_entries )); then
+    echo "WARNING: $__histrionic_archive_file shrank from $old_entries to $entries entries" >&2
+    return 1
+  fi
+  return 0
 }
 
 function __histrionic_search {
@@ -61,6 +94,7 @@ function __histrionic_search_all {
   __histrionic_search "$__histrionic_archive_dir/"*.hjs
 }
 
+
 __histrionic_init
 
 # Make sure all commands are appended immediately to the session command.
@@ -68,7 +102,7 @@ PROMPT_COMMAND="__histrionic_prompt;$PROMPT_COMMAND"
 
 # Install a trap on exit. If we error out, hang for a bit so we can at least see there an error before the shell window closes.
 # TODO(msolo) Play nice and make this preserve existing EXIT traps.
-trap '__histrionic_exit || sleep 60' EXIT
+trap '__histrionic_exit || sleep 61' EXIT
 
 if ! which fzf > /dev/null; then
   echo "histrionic: no fzf binary found in \$PATH" >&2
