@@ -70,5 +70,16 @@ diff -u $history_file_out $history_file_golden || fatal "archive check failed $h
 
 diff -u $search_file_out $search_file_golden || fatal "archive check failed $search_file_out"
 
+# This test has all the hallmarks of things I hate. Time. Fuzzy logic. Approximation. I deserve what I get debugging this.
+start=$(date +%s)
+$histrionic merge -test-sleep-under-lock 3s -o $archive_file_out.1 $archive_file_out $session_file_out &
+$histrionic merge -test-sleep-under-lock 3s -o $archive_file_out.1 $archive_file_out $session_file_out &
+wait
+end=$(date +%s)
+
+if (($end-$start<6)); then
+  fatal "serialized merge finished too quickly - faulty lock?"
+fi
+
 echo "OK - Great success."
 exit 0

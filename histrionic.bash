@@ -43,7 +43,7 @@ function __histrionic_ghost_session_files {
 }
 
 function __histrionic_exit {
-  if ! -f "$__histrionic_session_file"; then
+  if [ ! -f "$__histrionic_session_file" ]; then
     return 0
   fi
   old_entries=$(awk 'END{print NR}' < $__histrionic_archive_file)

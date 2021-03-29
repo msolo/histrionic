@@ -1,0 +1,1 @@
+go build -v -ldflags="-X 'main.BuildTime=$(date +%Y-%m-%dT%H:%M:%SZ%z)' -X 'main.BuildCommit=XXX'"

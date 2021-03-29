@@ -35,6 +35,11 @@ if the last command is a duplicate, nothing is appended so you can't tell an emp
 // TODO(msolo) Add mode to purge.
 // TOOD(msolo) Figure out how to display session info - maybe record in separate file and then merge on shell exit?
 
+var (
+	BuildTime   = ""
+	BuildCommit = ""
+)
+
 type histRecord struct {
 	Timestamp time.Time
 	Cmd       string
@@ -286,16 +291,18 @@ var doc = `Shell command history recorder.
   histrionic dump
   histrionic import
   histrionic merge
+  histrionic version
 
 Each mode accepts -h for additional command help.
 `
 
 func init() {
 	cmdMap = map[string]cmdFunc{
-		"append": cmdAppend,
-		"dump":   cmdDump,
-		"import": cmdImport,
-		"merge":  cmdMerge,
+		"append":  cmdAppend,
+		"dump":    cmdDump,
+		"import":  cmdImport,
+		"merge":   cmdMerge,
+		"version": cmdVersion,
 	}
 	log.SetFlags(0)
 
@@ -328,6 +335,11 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
+}
+
+func cmdVersion(args []string) {
+	fmt.Println("BuildTime:", BuildTime)
+	fmt.Println("BuildCommit:", BuildCommit)
 }
 
 func cmdAppend(args []string) {
@@ -367,11 +379,16 @@ func cmdAppend(args []string) {
 		log.Fatal(err)
 	}
 	defer func() {
-		_ = f.Sync()
-		_ = f.Close()
+		if err := f.Close(); err != nil {
+			log.Fatal(err)
+		}
 	}()
+
 	recWr := newRecordWriter(f)
 	if err := recWr.WriteRecord(&r); err != nil {
+		log.Fatal(err)
+	}
+	if err := f.Sync(); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -514,6 +531,7 @@ func cmdImport(args []string) {
 
 func cmdMerge(args []string) {
 	flags := flag.NewFlagSet("merge", flag.ExitOnError)
+	testSleepUnderLock := flags.Duration("test-sleep-under-lock", 0, "Set a sleep to help validate locking.")
 	outFile := flags.String("o", "/dev/stdout", "Output file.")
 
 	err := flags.Parse(args)
@@ -529,22 +547,47 @@ func cmdMerge(args []string) {
 	if err := flock.Lock(); err != nil {
 		log.Fatal(err)
 	}
+
+	if *testSleepUnderLock > 0 {
+		time.Sleep(*testSleepUnderLock)
+
+	}
+
 	defer func() {
 		if err := flock.Unlock(); err != nil {
 			log.Println(err)
 		}
 	}()
 
-	// Let's make a backup. Sometimes things get odd on shell closing.
-	if err := atomicFileCopy(*outFile+".bak", *outFile); err != nil {
-		log.Fatal(err)
+	bakFile := *outFile + ".bak"
+
+	fiSrc, fiSrcErr := os.Stat(*outFile)
+
+	if fiDst, err := os.Stat(bakFile); err == nil && fiSrcErr == nil {
+		if fiDst.Size() > fiSrc.Size() {
+			log.Fatal("backup file is larger than source file")
+		}
 	}
 
-	if err := merge(*outFile, flags.Args()); err != nil {
+	// Let's make a backup. Sometimes things get odd on shell closing.
+	if fiSrcErr == nil {
+		if err := atomicFileCopy(bakFile, *outFile); err != nil {
+			log.Fatal(err)
+		}
+	}
+	// Write this to a temp file in case we have issues.
+	tmpMergeFile := *outFile + ".bak-" + time.Now().Format(time.RFC3339Nano)
+
+	if err := merge(tmpMergeFile, flags.Args()); err != nil {
 		// If there is an error, restore the backup file.
+		log.Printf("merge failed: %v", err)
 		if restoreErr := atomicFileCopy(*outFile, *outFile+".bak"); restoreErr != nil {
 			log.Printf("unable to restore from backup: %v", restoreErr)
 		}
+		os.Exit(1)
+	}
+
+	if err := atomicFileCopy(*outFile, tmpMergeFile); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -567,10 +610,10 @@ func merge(outFile string, inputFiles []string) (err error) {
 	rs := make([]*histRecord, 0, 1024)
 	for _, fname := range inputFiles {
 		trs, err := readRecords(fname)
-		recCount[fname] = len(trs)
 		if err != nil {
 			return err
 		}
+		recCount[fname] = len(trs)
 		rs = append(rs, trs...)
 	}
 
@@ -578,7 +621,7 @@ func merge(outFile string, inputFiles []string) (err error) {
 
 	// Do a sanity check here.
 	for fname, count := range recCount {
-		if len(rs) <= count {
+		if len(rs) < count {
 			return fmt.Errorf("merge error: merge smaller than input file %s", fname)
 		}
 	}
