@@ -14,7 +14,10 @@ set -e
 # Always run from git root.
 cd $(git rev-parse --show-toplevel)
 
-histrionic=./cmd/histrionic/histrionic
+# Always rebuild.
+go build ./cmd/histrionic
+
+histrionic=./histrionic
 history_file_in="./test/history-in"
 
 archive_file_out="./test-out/archive-out.hjs"

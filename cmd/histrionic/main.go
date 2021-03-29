@@ -586,26 +586,14 @@ func cmdMerge(args []string) {
 		}
 		os.Exit(1)
 	}
-
-	if err := atomicFileCopy(*outFile, tmpMergeFile); err != nil {
+	// FIXME(msolo) This rename isn't flushed, unlike the atomicTempFile, so I think this might cause a race with another
+	// merge process, even if they have acquired the flock.
+	if err := os.Rename(tmpMergeFile, *outFile); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func merge(outFile string, inputFiles []string) (err error) {
-	wr, err := newAtomicFileWriter(outFile, 0644)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if closeErr := wr.Close(); closeErr != nil {
-			if err != nil {
-				err = closeErr
-			}
-		}
-	}()
-	recWr := newRecordWriter(wr)
-
 	recCount := make(map[string]int)
 	rs := make([]*histRecord, 0, 1024)
 	for _, fname := range inputFiles {
@@ -625,6 +613,19 @@ func merge(outFile string, inputFiles []string) (err error) {
 			return fmt.Errorf("merge error: merge smaller than input file %s", fname)
 		}
 	}
+
+	wr, err := newAtomicFileWriter(outFile, 0644)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := wr.Close(); closeErr != nil {
+			if err != nil {
+				err = closeErr
+			}
+		}
+	}()
+	recWr := newRecordWriter(wr)
 
 	for _, r := range rs {
 		if err := recWr.WriteRecord(r); err != nil {
