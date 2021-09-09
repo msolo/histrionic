@@ -43,6 +43,7 @@ var (
 type histRecord struct {
 	Timestamp time.Time
 	Cmd       string
+	WorkDir   string
 	SessionId string
 	Hostname  string
 	ExitCode  int
@@ -96,6 +97,7 @@ func writeHistory(w io.Writer, rs []*histRecord) {
 }
 
 func writeLines(w io.Writer, rs []*histRecord, lineNumbers bool, print0 bool) {
+	homeDir, _ := os.UserHomeDir()
 	for i, r := range rs {
 		cmd := ""
 		if lineNumbers {
@@ -108,7 +110,16 @@ func writeLines(w io.Writer, rs []*histRecord, lineNumbers bool, print0 bool) {
 		}
 
 		cmd += r.Cmd
+		if r.WorkDir != "" {
+			wd := r.WorkDir
+			if strings.HasPrefix(wd, homeDir) {
+				wd = "~" + wd[len(homeDir):]
+			}
 
+			cmd += "\t(" + wd + ")"
+		} else {
+			cmd += "\t"
+		}
 		// cmd += "\t" + r.Timestamp.Format(time.RFC3339)
 		io.WriteString(w, cmd)
 		if print0 {
@@ -348,6 +359,7 @@ func cmdAppend(args []string) {
 	outFile := flags.String("o", "", "History file.")
 	hostname := flags.String("hostname", os.Getenv("HOSTNAME"), "See the hostname instead of inferring it from $HOSTNAME.")
 	session := flags.String("session", "", "Bash session id.")
+	workDir := flags.String("workdir", "", "Working directory for the command.")
 	exitCode := flags.Int("exit-code", 0, "Exit code for command.")
 	timestamp := flags.Int64("timestamp", 0, "Override timestamp.")
 
@@ -370,6 +382,7 @@ func cmdAppend(args []string) {
 	r := histRecord{Timestamp: ts,
 		Cmd:       string(bytes.TrimSpace(bcmd)),
 		Hostname:  *hostname,
+		WorkDir:   *workDir,
 		SessionId: *session,
 		ExitCode:  *exitCode,
 	}

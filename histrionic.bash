@@ -24,7 +24,9 @@ function __histrionic_init {
 
 function __histrionic_prompt {
 	local rc=$?
-	builtin fc -nl -1 | histrionic append -exit-code $rc -session $__histrionic_session -hostname $HOSTNAME -o "$__histrionic_session_file"
+	# FIXME(msolo) workdir is wrong on any command that changed directory in the first place.
+	# FIXME(msolo) fc -nl -1 will always re-write the last command into history on shell init.
+	builtin fc -nl -1 | histrionic append -workdir "$PWD" -exit-code $rc -session $__histrionic_session -hostname $HOSTNAME -o "$__histrionic_session_file"
 }
 
 # Ghost sessions are files that are not associated with a running pid.
@@ -71,12 +73,12 @@ function __histrionic_search {
   local output
   output=$(
     histrionic dump -coalesce -prune -print0 "$@" |
-      FZF_DEFAULT_OPTS="--height ${FZF_TMUX_HEIGHT:-40%} $FZF_DEFAULT_OPTS -d'\t' -n2..3 --tiebreak=index --bind=ctrl-r:toggle-sort --bind=ctrl-q:toggle-preview $FZF_CTRL_R_OPTS --no-multi --tac --read0" $(__fzfcmd) --query "$READLINE_LINE" --preview='echo {3}' --preview-window=down:4:wrap:noborder ) || return
-  # intput/output to fzf is tab delimited. the last field must be the command, which can't contain tabs (fingers crossed)
-  # This next line does a greedy match for *\t but requires some fancy escaping for reasons I don't quite fully comprehend, but it's bash.
-  READLINE_LINE=${output##*$'\t'}
+      FZF_DEFAULT_OPTS="--height ${FZF_TMUX_HEIGHT:-40%} $FZF_DEFAULT_OPTS -d'\t' -n2..3 --tiebreak=index --bind=ctrl-r:toggle-sort --bind=ctrl-q:toggle-preview $FZF_CTRL_R_OPTS --no-multi --tac --read0" $(__fzfcmd) --query "$READLINE_LINE" --preview='echo {3}' --preview-window=down:4:wrap:noborder |
+      awk -F'\t' '{print $3}' ) || return
+  # intput/output to fzf is tab delimited. $ouput should be the command
+  READLINE_LINE="${output}"
   if [ -z "$READLINE_POINT" ]; then
-    echo "$READLINE_LINE"
+    echo "$output"
   else
     READLINE_POINT=0x7fffffff
   fi
